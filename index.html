@@ -1,1 +1,271 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amity Group — Credit Memo Agent</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6f9;color:#1a1a2e;min-height:100vh}
+.header{background:#0a1628;color:#fff;padding:16px 28px;display:flex;align-items:center;gap:14px}
+.header-logo{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.header-logo span{color:#c9a84c}
+.header-sub{font-size:12px;color:#8899bb;margin-top:2px}
+.main{max-width:960px;margin:0 auto;padding:28px 20px}
+.pipeline{display:flex;gap:0;margin-bottom:28px;border-radius:10px;overflow:hidden;border:1px solid #dde3ed}
+.pipe-step{flex:1;padding:10px 8px;text-align:center;background:#fff;font-size:11px;font-weight:600;color:#8899bb;border-right:1px solid #dde3ed;transition:all 0.2s;position:relative}
+.pipe-step:last-child{border-right:none}
+.pipe-step.active{background:#0a1628;color:#c9a84c}
+.pipe-step.done{background:#e8f5e9;color:#2e7d32}
+.pipe-step .step-num{display:block;font-size:16px;margin-bottom:2px}
+.section{background:#fff;border-radius:12px;border:1px solid #dde3ed;padding:22px;margin-bottom:18px}
+.section-title{font-size:13px;font-weight:700;color:#0a1628;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.section-title .badge{background:#0a1628;color:#c9a84c;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600}
+.upload-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.drop-zone{border:2px dashed #c9a84c;border-radius:10px;padding:22px 16px;text-align:center;cursor:pointer;transition:all 0.2s;background:#fffdf5}
+.drop-zone:hover{background:#fff8e1;border-color:#a07830}
+.drop-zone h3{font-size:13px;font-weight:600;color:#0a1628;margin-bottom:4px}
+.drop-zone p{font-size:11px;color:#8899bb}
+.drop-zone .dz-icon{font-size:28px;margin-bottom:8px}
+.file-tag{display:inline-flex;align-items:center;gap:5px;background:#e8f0fe;color:#1a3a7c;font-size:11px;padding:3px 9px;border-radius:20px;margin:3px;cursor:pointer}
+.file-tag:hover{background:#d0e0ff}
+.file-count{font-size:11px;color:#2e7d32;font-weight:600;margin-top:6px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:11px;font-weight:600;color:#4a5568;text-transform:uppercase;letter-spacing:0.3px}
+.form-group input,.form-group select{padding:8px 11px;border:1px solid #dde3ed;border-radius:7px;font-size:13px;color:#1a1a2e;background:#fff}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#c9a84c;box-shadow:0 0 0 2px rgba(201,168,76,0.15)}
+.run-btn{width:100%;padding:14px;background:#0a1628;color:#c9a84c;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:0.3px;transition:all 0.2s;margin-top:6px}
+.run-btn:hover{background:#162240}
+.run-btn:disabled{background:#aaa;color:#fff;cursor:not-allowed}
+.agent-log{background:#0a1628;border-radius:10px;padding:16px;font-family:'SF Mono','Fira Code',monospace;font-size:12px;color:#8cb4ff;min-height:80px;max-height:220px;overflow-y:auto;margin-bottom:18px}
+.log-line{padding:2px 0;line-height:1.5}
+.log-line.ok{color:#69f0ae}
+.log-line.info{color:#8cb4ff}
+.log-line.warn{color:#c9a84c}
+.log-line.err{color:#ff6b6b}
+.log-line.head{color:#fff;font-weight:700}
+.memo-wrap{background:#fff;border-radius:12px;border:1px solid #dde3ed;padding:28px;margin-bottom:18px;display:none}
+.memo-header{text-align:center;border-bottom:3px solid #0a1628;padding-bottom:16px;margin-bottom:20px}
+.memo-title{font-size:20px;font-weight:800;color:#0a1628;letter-spacing:-0.5px}
+.memo-sub{font-size:12px;color:#8899bb;margin-top:3px}
+.memo-section{margin-bottom:22px}
+.memo-section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#0a1628;background:#f4f6f9;padding:6px 12px;border-left:4px solid #c9a84c;margin-bottom:12px}
+.memo-table{width:100%;border-collapse:collapse;font-size:12px}
+.memo-table th{background:#0a1628;color:#c9a84c;padding:7px 10px;text-align:left;font-size:11px;font-weight:600}
+.memo-table td{padding:7px 10px;border-bottom:1px solid #f0f2f5;vertical-align:top}
+.memo-table tr:last-child td{border-bottom:none}
+.memo-table .bold td{font-weight:700;background:#f9fafb}
+.memo-table .total td{font-weight:700;background:#e8f0fe;color:#0a1628}
+.narrative-box{background:#fffdf5;border:1px solid #f0e0a0;border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:#2d2d2d}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.action-row{display:flex;gap:10px;margin-top:16px}
+.action-btn{flex:1;padding:10px;border:1px solid #dde3ed;background:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#0a1628;transition:all 0.2s}
+.action-btn:hover{background:#f4f6f9}
+.action-btn.primary{background:#0a1628;color:#c9a84c;border-color:#0a1628}
+.action-btn.primary:hover{background:#162240}
+.token-bar{display:flex;align-items:center;gap:10px;font-size:11px;color:#8899bb;margin-top:10px;padding-top:10px;border-top:1px solid #f0f2f5}
+.token-count{font-weight:700;color:#2e7d32}
+.model-badge{background:#e8f0fe;color:#1a3a7c;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+@media(max-width:600px){.upload-row,.form-grid,.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="header-logo">The Amity <span>Group</span></div>
+    <div class="header-sub">Credit Memo Agent — Borrower Advocate Mode</div>
+  </div>
+</div>
+<div class="main">
+<div class="pipeline">
+  <div class="pipe-step active" id="step1"><span class="step-num">①</span>Upload</div>
+  <div class="pipe-step" id="step2"><span class="step-num">②</span>Extract</div>
+  <div class="pipe-step" id="step3"><span class="step-num">③</span>Reconcile</div>
+  <div class="pipe-step" id="step4"><span class="step-num">④</span>Narrative</div>
+  <div class="pipe-step" id="step5"><span class="step-num">⑤</span>Memo</div>
+</div>
+<div class="section">
+  <div class="section-title">Borrower Info <span class="badge">Manual Entry</span></div>
+  <div class="form-grid">
+    <div class="form-group"><label>Loan Amount Requested</label><input type="text" id="f-amount" placeholder="e.g. $75,000"></div>
+    <div class="form-group"><label>Loan Purpose</label><input type="text" id="f-purpose" placeholder="e.g. Working capital / equipment"></div>
+    <div class="form-group"><label>Loan Term Requested</label><input type="text" id="f-term" placeholder="e.g. 24 months"></div>
+    <div class="form-group"><label>Owner FICO Score</label><input type="text" id="f-fico" placeholder="e.g. 650"></div>
+  </div>
+</div>
+<div class="section">
+  <div class="section-title">Documents <span class="badge">Upload</span></div>
+  <div class="upload-row">
+    <div>
+      <div class="drop-zone" id="dz-tax" onclick="document.getElementById('fi-tax').click()" ondragover="dzOver(event,'dz-tax')" ondragleave="dzOut('dz-tax')" ondrop="dzDrop(event,'tax')">
+        <div class="dz-icon">📄</div>
+        <h3>Tax Returns</h3>
+        <p>1120 / 1120-S / Schedule C<br>1–3 years</p>
+      </div>
+      <input type="file" id="fi-tax" multiple accept=".pdf" style="display:none" onchange="addFiles(this.files,'tax')">
+      <div id="tags-tax"></div>
+    </div>
+    <div>
+      <div class="drop-zone" id="dz-bank" onclick="document.getElementById('fi-bank').click()" ondragover="dzOver(event,'dz-bank')" ondragleave="dzOut('dz-bank')" ondrop="dzDrop(event,'bank')">
+        <div class="dz-icon">🏦</div>
+        <h3>Bank Statements</h3>
+        <p>3–6 months<br>All accounts welcome</p>
+      </div>
+      <input type="file" id="fi-bank" multiple accept=".pdf" style="display:none" onchange="addFiles(this.files,'bank')">
+      <div id="tags-bank"></div>
+    </div>
+  </div>
+</div>
+<div class="section" style="padding:14px 22px">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <div style="font-size:12px;color:#4a5568"><b>OCR mode:</b> pdf.js extracts text client-side before any API call — zero token cost for extraction</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:12px;color:#4a5568;font-weight:600">Model:</label>
+      <select id="model-sel" style="font-size:12px;padding:5px 8px;border:1px solid #dde3ed;border-radius:6px">
+        <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+        <option value="claude-haiku-4-5-20251001">Haiku 4.5 (fastest)</option>
+      </select>
+    </div>
+  </div>
+</div>
+<button class="run-btn" id="run-btn" onclick="runAgent()">▶ Run Credit Memo Agent</button>
+<div class="agent-log" id="agent-log" style="margin-top:18px">
+  <div class="log-line info">Agent ready. Upload documents and click Run.</div>
+</div>
+<div class="memo-wrap" id="memo-wrap">
+  <div class="memo-header">
+    <div class="memo-title">CREDIT MEMORANDUM</div>
+    <div class="memo-sub" id="memo-sub"></div>
+  </div>
+  <div id="memo-body"></div>
+  <div class="action-row">
+    <button class="action-btn" onclick="copyMemo()">📋 Copy Text</button>
+    <button class="action-btn primary" onclick="printMemo()">🖨 Print / Save PDF</button>
+  </div>
+  <div class="token-bar">
+    <span>Total tokens used:</span>
+    <span class="token-count" id="token-total">—</span>
+    <span class="model-badge" id="model-used">—</span>
+    <span style="margin-left:auto;font-size:10px;color:#aaa">4 modular calls · PDFs never sent to assemble step</span>
+  </div>
+</div>
+</div>
+<script>
+const WORKER = 'https://bitter-bread-55f9.meghan-985.workers.dev';
+let files = { tax: [], bank: [] };
+let totalTokens = 0;
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function dzOver(e,id){e.preventDefault();document.getElementById(id).style.background='#fff8e1';}
+function dzOut(id){document.getElementById(id).style.background='#fffdf5';}
+function dzDrop(e,type){e.preventDefault();dzOut('dz-'+type);addFiles(e.dataTransfer.files,type);}
+function addFiles(flist,type){for(const f of flist){if(f.type==='application/pdf'&&!files[type].find(x=>x.name===f.name))files[type].push(f);}renderTags(type);}
+function removeFile(type,name){files[type]=files[type].filter(f=>f.name!==name);renderTags(type);}
+function renderTags(type){const el=document.getElementById('tags-'+type);el.innerHTML=files[type].map(f=>`<span class="file-tag" onclick="removeFile('${type}','${f.name}')">✕ ${f.name}</span>`).join('')+(files[type].length?`<div class="file-count">✓ ${files[type].length} file(s)</div>`:'');}
+function log(msg,cls='info'){const el=document.getElementById('agent-log');el.innerHTML+=`<div class="log-line ${cls}">${msg}</div>`;el.scrollTop=el.scrollHeight;}
+function clearLog(){document.getElementById('agent-log').innerHTML='';}
+function setStep(n){for(let i=1;i<=5;i++){const el=document.getElementById('step'+i);if(i<n)el.className='pipe-step done';else if(i===n)el.className='pipe-step active';else el.className='pipe-step';}}
+async function extractPdfText(file){const ab=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:ab}).promise;let text='';const maxPages=Math.min(pdf.numPages,6);for(let i=1;i<=maxPages;i++){const page=await pdf.getPage(i);const content=await page.getTextContent();text+=content.items.map(s=>s.str).join(' ')+'\n';}return text.slice(0,6000);}
+async function callClaude(systemPrompt,userContent,label){const model=document.getElementById('model-sel').value;log(`  → Calling Claude [${label}]...`,'info');const resp=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,max_tokens:900,system:systemPrompt,messages:[{role:'user',content:userContent}]})});if(!resp.ok)throw new Error(`Worker error ${resp.status}`);const data=await resp.json();if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));const tokens=(data.usage?.input_tokens||0)+(data.usage?.output_tokens||0);totalTokens+=tokens;document.getElementById('token-total').textContent=totalTokens.toLocaleString();log(`  ✓ ${label} complete (${tokens} tokens)`,'ok');return data.content.map(b=>b.type==='text'?b.text:'').join('').trim();}
+function safeJSON(str){try{return JSON.parse(str.replace(/```json|```/g,'').trim());}catch(e){return null;}}
+async function runAgent(){
+  const allFiles=[...files.tax,...files.bank];
+  if(allFiles.length===0){alert('Please upload at least one document.');return;}
+  clearLog();totalTokens=0;
+  document.getElementById('memo-wrap').style.display='none';
+  document.getElementById('run-btn').disabled=true;
+  document.getElementById('token-total').textContent='0';
+  document.getElementById('model-used').textContent=document.getElementById('model-sel').value;
+  const loanAmount=document.getElementById('f-amount').value||'Not specified';
+  const loanPurpose=document.getElementById('f-purpose').value||'Working capital';
+  const loanTerm=document.getElementById('f-term').value||'Not specified';
+  const fico=document.getElementById('f-fico').value||'Not provided';
+  try{
+    setStep(2);log('━━ ROOM 1: EXTRACT ━━','head');
+    log('Extracting text from PDFs client-side (no tokens)...','info');
+    const extracted=[];
+    for(const f of files.tax){
+      log(`  Extracting: ${f.name}`,'info');
+      const text=await extractPdfText(f);
+      const result=await callClaude('You are a financial data extractor. Read this tax return and return ONLY valid JSON: {"bizName":"","bizAddress":"","ein":"","entityType":"","fiscalYear":"","grossReceipts":0,"netIncome":0,"totalDeductions":0,"ownerName":"","ownerTitle":"","yearsInBusiness":"","notes":""}. Numbers as integers. Return JSON only.',`TAX RETURN TEXT:\n${text}`,`Tax: ${f.name}`);
+      const json=safeJSON(result);
+      if(json)extracted.push({type:'tax',file:f.name,data:json});
+      else{log(`  ⚠ Could not parse JSON for ${f.name}`,'warn');extracted.push({type:'tax',file:f.name,raw:result});}
+    }
+    for(const f of files.bank){
+      log(`  Extracting: ${f.name}`,'info');
+      const text=await extractPdfText(f);
+      const result=await callClaude('You are a financial data extractor. Read this bank statement and return ONLY valid JSON: {"bankName":"","accountLast4":"","statementPeriod":"","openingBalance":0,"closingBalance":0,"totalDeposits":0,"totalWithdrawals":0,"avgDailyBalance":0,"nsfs":0,"largeDeposits":[],"notes":""}. Numbers as integers. Return JSON only.',`BANK STATEMENT TEXT:\n${text}`,`Bank: ${f.name}`);
+      const json=safeJSON(result);
+      if(json)extracted.push({type:'bank',file:f.name,data:json});
+      else{log(`  ⚠ Could not parse JSON for ${f.name}`,'warn');extracted.push({type:'bank',file:f.name,raw:result});}
+    }
+    const extractJSON=JSON.stringify(extracted);
+    setStep(3);log('━━ ROOM 2: RECONCILE ━━','head');
+    const reconResult=await callClaude('You are a loan analyst for a borrower advocate. Given extracted financial data return ONLY valid JSON: {"bizName":"","bizAddress":"","ein":"","entityType":"","ownerName":"","yearsInBusiness":"","taxYears":[{"year":"","grossReceipts":0,"netIncome":0}],"bankMonths":[{"period":"","deposits":0,"avgBalance":0,"nsfs":0}],"avgMonthlyDeposits":0,"peakMonth":"","peakDeposits":0,"taxVsBankNote":"","depositGrowthNote":"","strongestPoint":""}. Focus on strengths. Return JSON only.',`EXTRACTED DATA:\n${extractJSON}\nLOAN REQUEST: ${loanAmount} for ${loanPurpose}`,'Reconcile');
+    const recon=safeJSON(reconResult)||{};
+    setStep(4);log('━━ ROOM 3: NARRATIVE ━━','head');
+    const narrative=await callClaude('You are writing a credit memo narrative for a loan broker representing borrowers. Write 3 tight paragraphs (~180 words total) in professional lender language. Para 1: Business overview. Para 2: Financial strength and revenue. Para 3: Loan purpose and repayment capacity. Advocate mode only — present strengths, no risk warnings, no bullet points.',`RECONCILED DATA: ${JSON.stringify(recon)}\nLOAN: ${loanAmount} | PURPOSE: ${loanPurpose} | TERM: ${loanTerm} | FICO: ${fico}`,'Narrative');
+    setStep(5);log('━━ ROOM 4: ASSEMBLE ━━','head');
+    log('Building final memo from JSON only (no PDFs)...','info');
+    buildMemo(recon,extracted,narrative,{loanAmount,loanPurpose,loanTerm,fico});
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━','head');
+    log(`✅ Credit memo complete. Total tokens: ${totalTokens.toLocaleString()}`,'ok');
+    log(`   PDFs processed: ${allFiles.length} | API calls: 3`,'info');
+  }catch(err){
+    log(`ERROR: ${err.message}`,'err');
+    log('Check: Cloudflare Worker → Settings → Variables and Secrets → ANTHROPIC_API_KEY','warn');
+  }
+  document.getElementById('run-btn').disabled=false;
+}
+function buildMemo(recon,extracted,narrative,loan){
+  const fmt=n=>n?'$'+(+n).toLocaleString():'—';
+  const d=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const taxRows=(recon.taxYears||[]).map(ty=>`<tr><td>${ty.year||'—'}</td><td>${fmt(ty.grossReceipts)}</td><td>${fmt(ty.netIncome)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:#999">See uploaded tax returns</td></tr>';
+  const bankRows=(recon.bankMonths||[]).map(bm=>`<tr><td>${bm.period||'—'}</td><td>${fmt(bm.deposits)}</td><td>${fmt(bm.avgBalance)}</td><td>${bm.nsfs||0}</td></tr>`).join('')||'<tr><td colspan="4" style="color:#999">See uploaded bank statements</td></tr>';
+  const html=`
+<div class="memo-section"><div class="memo-section-title">I. Transaction Summary</div>
+<table class="memo-table">
+<tr><td style="width:40%"><b>Business Name</b></td><td>${recon.bizName||'—'}</td><td style="width:40%"><b>Loan Amount</b></td><td>${loan.loanAmount||'—'}</td></tr>
+<tr><td><b>Entity Type</b></td><td>${recon.entityType||'—'}</td><td><b>Loan Purpose</b></td><td>${loan.loanPurpose||'—'}</td></tr>
+<tr><td><b>Business Address</b></td><td>${recon.bizAddress||'—'}</td><td><b>Loan Term</b></td><td>${loan.loanTerm||'—'}</td></tr>
+<tr><td><b>EIN</b></td><td>${recon.ein||'—'}</td><td><b>Owner FICO</b></td><td>${loan.fico||'—'}</td></tr>
+<tr><td><b>Owner / Principal</b></td><td>${recon.ownerName||'—'}</td><td><b>Years in Business</b></td><td>${recon.yearsInBusiness||'—'}</td></tr>
+<tr><td><b>Memo Date</b></td><td>${d}</td><td><b>Prepared By</b></td><td>The Amity Group LLC</td></tr>
+</table></div>
+<div class="memo-section"><div class="memo-section-title">II. Business Overview</div>
+<div class="narrative-box">${narrative.replace(/\n/g,'<br>')}</div></div>
+<div class="memo-section"><div class="memo-section-title">III. Tax Return Analysis</div>
+<table class="memo-table"><thead><tr><th>Fiscal Year</th><th>Gross Receipts</th><th>Net Income</th></tr></thead><tbody>${taxRows}</tbody></table>
+${recon.taxVsBankNote?`<div style="font-size:11px;color:#4a5568;margin-top:8px;padding:8px 12px;background:#f9fafb;border-radius:6px">${recon.taxVsBankNote}</div>`:''}</div>
+<div class="memo-section"><div class="memo-section-title">IV. Bank Statement Analysis</div>
+<table class="memo-table"><thead><tr><th>Period</th><th>Total Deposits</th><th>Avg Daily Balance</th><th>NSFs</th></tr></thead><tbody>${bankRows}</tbody></table>
+<div class="two-col" style="margin-top:12px">
+<table class="memo-table"><tr class="total"><td><b>Avg Monthly Deposits</b></td><td><b>${fmt(recon.avgMonthlyDeposits)}</b></td></tr><tr><td>Peak Month</td><td>${recon.peakMonth||'—'}</td></tr><tr><td>Peak Deposits</td><td>${fmt(recon.peakDeposits)}</td></tr></table>
+<div style="background:#f0f7ff;border-radius:8px;padding:12px;font-size:12px;color:#1a3a7c;line-height:1.6"><b>Deposit Trend:</b><br>${recon.depositGrowthNote||'See bank statements for full detail.'}</div>
+</div></div>
+<div class="memo-section"><div class="memo-section-title">V. Loan Request & Repayment Capacity</div>
+<table class="memo-table">
+<tr><td style="width:50%"><b>Amount Requested</b></td><td>${loan.loanAmount||'—'}</td></tr>
+<tr><td><b>Purpose</b></td><td>${loan.loanPurpose||'—'}</td></tr>
+<tr><td><b>Requested Term</b></td><td>${loan.loanTerm||'—'}</td></tr>
+<tr><td><b>Avg Monthly Revenue (Bank)</b></td><td>${fmt(recon.avgMonthlyDeposits)}</td></tr>
+</table></div>
+<div class="memo-section"><div class="memo-section-title">VI. Broker Recommendation</div>
+<div class="narrative-box">The Amity Group LLC presents this application on behalf of ${recon.bizName||'the borrower'} and recommends approval. ${recon.strongestPoint||''} This borrower demonstrates consistent cash flow and a clear repayment capacity relative to the requested loan amount. The Amity Group LLC is available to provide any additional documentation or clarification required.</div></div>
+<div style="margin-top:20px;padding-top:14px;border-top:2px solid #0a1628;display:flex;justify-content:space-between;align-items:flex-end;font-size:11px;color:#8899bb">
+<div><b style="color:#0a1628">The Amity Group LLC</b><br>826 Whitney Lane, Lexington, SC 29072<br>Commercial Loan Brokerage · NAICS 522390</div>
+<div style="text-align:right">Prepared: ${d}<br>Confidential — For Lender Use Only</div>
+</div>`;
+  document.getElementById('memo-sub').textContent=`${recon.bizName||'Borrower'} · ${d} · ${loan.loanAmount}`;
+  document.getElementById('memo-body').innerHTML=html;
+  document.getElementById('memo-wrap').style.display='block';
+  document.getElementById('memo-wrap').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function copyMemo(){const text=document.getElementById('memo-body').innerText;navigator.clipboard.writeText(text).then(()=>alert('Memo copied to clipboard.'));}
+function printMemo(){window.print();}
+</script>
+</body>
+</html>

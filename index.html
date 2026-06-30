@@ -324,13 +324,21 @@ RULES:
 - Return JSON only.`;
 
 const RECON_SYSTEM = `You are a loan analyst reconciling extracted financial data for a commercial loan broker. You must be strictly accurate — do not infer, smooth over, or invent any figure that was not explicitly provided in the input.
+
+IMPORTANT — THIS BROKER'S STANDARD INTAKE PACKAGE IS DELIBERATELY: 1 year of tax returns + 2 months of bank statements. This is the EXPECTED, COMPLETE package, not a partial one. Do NOT flag any of the following as missing or insufficient — they are normal and by design:
+- Only one year of tax returns provided (do not ask for a second year)
+- Only two months of bank statements provided (do not ask for 3-6 months)
+- Bank statement months not overlapping the tax return period
+- No personal financial statement, Schedule K-1, or other documents not in the extracted data — only flag a document type if it was actually submitted but unreadable
+
 Return ONLY valid JSON, no markdown fences:
 {"bizName":null,"bizAddress":null,"ein":null,"entityType":null,"ownerName":null,"yearsInBusiness":null,"taxYears":[],"bankMonths":[],"avgMonthlyDeposits":null,"peakMonth":null,"peakDeposits":null,"taxVsBankNote":"","depositGrowthNote":"","strongestPoint":"","dataSufficient":true,"missingItems":[]}
 RULES:
 - taxYears: [{"year":"","grossReceipts":null,"netIncome":null}] — only from extracted data, never fabricated.
 - bankMonths: [{"period":"","deposits":null,"avgBalance":null,"nsfs":0}] — only from extracted data.
 - avgMonthlyDeposits: only calculate this if at least one bank month has a non-null deposits figure; otherwise null.
-- Set "dataSufficient":false if core figures needed to assess repayment capacity are missing or unreadable (e.g. no usable revenue or deposit numbers across all submitted documents). List exactly what's missing in "missingItems" (plain language, e.g. "2024 tax return gross receipts unreadable", "March bank statement illegible").
+- Set "dataSufficient":false ONLY for genuine problems within the documents actually submitted: a number on a submitted page that was unreadable/illegible, a submitted document that turned out blank, or a real internal inconsistency (e.g. a single month's deposits wildly exceeding total annual reported revenue, which should be flagged for verification rather than silently accepted). Do NOT set this false merely because only 1 tax year or 2 bank months were submitted — that is expected.
+- List genuine issues in "missingItems" using plain language describing the actual problem (e.g. "April deposits of $X are inconsistent with annual reported revenue of $Y — needs borrower clarification", "March 14 page of bank statement illegible"). Do not list the absence of a second tax year, additional bank months, K-1, or PFS as items.
 - "strongestPoint" should only state things actually supported by the data — leave it empty/minimal if data is thin.
 - Return JSON only.`;
 

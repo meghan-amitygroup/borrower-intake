@@ -288,10 +288,10 @@ function imagesToContent(images, promptText){
   return content;
 }
 
-async function callClaude(systemPrompt,userContent,label){
+async function callClaude(systemPrompt,userContent,label,maxTok){
   const model=document.getElementById('model-sel').value;
   log(`  → Calling Claude [${label}]...`,'info');
-  const resp=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,max_tokens:1200,system:systemPrompt,messages:[{role:'user',content:userContent}]})});
+  const resp=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,max_tokens:maxTok||1200,system:systemPrompt,messages:[{role:'user',content:userContent}]})});
   if(!resp.ok)throw new Error(`Worker error ${resp.status}`);
   const data=await resp.json();
   if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
@@ -302,7 +302,17 @@ async function callClaude(systemPrompt,userContent,label){
   return data.content.map(b=>b.type==='text'?b.text:'').join('').trim();
 }
 
-function safeJSON(str){try{return JSON.parse(str.replace(/```json|```/g,'').trim());}catch(e){return null;}}
+function safeJSON(str){
+  let cleaned = str.replace(/```json|```/g,'').trim();
+  try{ return JSON.parse(cleaned); }catch(e){}
+  // Fallback: extract the first {...} block even if the model added stray text around it
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if(start !== -1 && end !== -1 && end > start){
+    try{ return JSON.parse(cleaned.slice(start, end+1)); }catch(e){}
+  }
+  return null;
+}
 
 const TAX_SYSTEM = `You are a meticulous financial document reader examining IMAGES of a tax return (it may be a scan or photo). Read every page carefully.
 Return ONLY valid JSON, no explanation, no markdown fences:
@@ -402,8 +412,8 @@ async function runAgent(){
     setStep(3);log('━━ ROOM 2: RECONCILE ━━','head');
     const reconResult=await callClaude(RECON_SYSTEM,
       `EXTRACTED DATA:\n${extractJSON}\nLOAN: ${loanAmount} for ${loanPurpose}\nOWNER (manual entry): ${ownerName}\nYEARS IN BUSINESS (manual entry): ${yearsInBiz}`,
-      'Reconcile');
-    const recon=safeJSON(reconResult)||{dataSufficient:false,missingItems:['Reconciliation step failed to return valid data']};
+      'Reconcile',2000);
+    const recon=safeJSON(reconResult)||{dataSufficient:false,missingItems:['TOOL ERROR — Reconciliation step did not return valid data. This is NOT a finding about the borrower; rerun the analysis. If it fails again, the documents themselves may need re-uploading.'],toolError:true};
 
     if(ownerName && !recon.ownerName) recon.ownerName = ownerName;
     if(yearsInBiz && !recon.yearsInBusiness) recon.yearsInBusiness = yearsInBiz;

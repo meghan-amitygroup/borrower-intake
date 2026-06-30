@@ -143,15 +143,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <input type="text" id="f-owner" placeholder="e.g. John Smith">
     </div>
     <div class="form-group">
-      <label>Years in Business</label>
-      <input type="text" id="f-years" placeholder="e.g. 7">
-    </div>
-
-    <div class="form-group" style="grid-column:1 / -1">
-      <label>Prior Operating History (optional)</label>
-      <input type="text" id="f-prior-history" placeholder="e.g. Operating continuously since 2011 under prior name/sole proprietorship; incorporated 2023">
-    </div>
-    <div class="form-group">
       <label>Owner FICO Score</label>
       <input type="text" id="f-fico" placeholder="e.g. 650">
     </div>
@@ -293,12 +284,10 @@ function imagesToContent(images, promptText){
   return content;
 }
 
-async function callClaude(systemPrompt,userContent,label,maxTok,forceJSON){
+async function callClaude(systemPrompt,userContent,label,maxTok){
   const model=document.getElementById('model-sel').value;
   log(`  → Calling Claude [${label}]...`,'info');
-  const messages=[{role:'user',content:userContent}];
-  if(forceJSON) messages.push({role:'assistant',content:'{'});
-  const resp=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,max_tokens:maxTok||1200,system:systemPrompt,messages})});
+  const resp=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,max_tokens:maxTok||1200,system:systemPrompt,messages:[{role:'user',content:userContent}]})});
   if(!resp.ok)throw new Error(`Worker error ${resp.status}`);
   const data=await resp.json();
   if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
@@ -306,9 +295,20 @@ async function callClaude(systemPrompt,userContent,label,maxTok,forceJSON){
   totalTokens+=tokens;
   document.getElementById('token-total').textContent=totalTokens.toLocaleString();
   log(`  ✓ ${label} complete (${tokens} tokens)`,'ok');
-  let text=data.content.map(b=>b.type==='text'?b.text:'').join('').trim();
-  if(forceJSON) text='{'+text;
-  return text;
+  return data.content.map(b=>b.type==='text'?b.text:'').join('').trim();
+}
+
+// Calls Claude and guarantees a JSON object back, retrying once with a stricter
+// reminder if the first response isn't valid JSON (e.g. model added prose).
+async function callClaudeJSON(systemPrompt,userContent,label,maxTok){
+  let raw=await callClaude(systemPrompt,userContent,label,maxTok);
+  let parsed=safeJSON(raw);
+  if(parsed) return parsed;
+  log(`  ⚠ ${label}: response wasn't valid JSON, retrying with stricter format reminder...`,'warn');
+  const strictSystem=systemPrompt+`\n\nCRITICAL: Your previous response did not follow the required format. You MUST respond with ONLY a single JSON object. Do not include any explanation, preamble, apology, or markdown formatting — your entire response must start with { and end with }.`;
+  raw=await callClaude(strictSystem,userContent,label+' retry',maxTok);
+  parsed=safeJSON(raw);
+  return parsed; // may still be null — caller handles that case
 }
 
 function safeJSON(str){
@@ -350,10 +350,10 @@ IMPORTANT — THIS BROKER'S STANDARD INTAKE PACKAGE IS DELIBERATELY: 1 year of t
 - Bank statement months not overlapping the tax return period
 - No personal financial statement, Schedule K-1, or other documents not in the extracted data — only flag a document type if it was actually submitted but unreadable
 
-IMPORTANT — YEARS IN BUSINESS: The broker provides "Years in Business" as a manual entry based on their direct knowledge of the borrower. Use that figure as-is in the output. Do NOT cross-check, compare, or flag it against any incorporation date, EIN registration date, or entity formation date found in tax documents — entity structure changes (incorporating an existing business, changing a DBA, etc.) are routine and do not mean the underlying business is newer. Never mention an incorporation date discrepancy. If the broker also provides "Prior Operating History" context, include it matter-of-factly as supporting background, not as a clarification request.
 
 Return ONLY valid JSON, no markdown fences:
-{"bizName":null,"bizAddress":null,"ein":null,"entityType":null,"ownerName":null,"yearsInBusiness":null,"taxYears":[],"bankMonths":[],"avgMonthlyDeposits":null,"peakMonth":null,"peakDeposits":null,"taxVsBankNote":"","depositGrowthNote":"","strongestPoint":"","dataSufficient":true,"missingItems":[]}
+{"bizName":null,"bizAddress":null,"ein":null,"entityType":null,"ownerName":null,"taxYears":[],"bankMonths":[],"avgMonthlyDeposits":null,"peakMonth":null,"peakDeposits":null,"taxVsBankNote":"","depositGrowthNote":"","strongestPoint":"","dataSufficient":true,"missingItems":[]}
+- Do NOT mention years in business, incorporation date, entity formation date, or any related tenure topic anywhere in your output, narrative notes, or missingItems — this is intentionally excluded from this memo.
 RULES:
 - taxYears: [{"year":"","grossReceipts":null,"netIncome":null}] — only from extracted data, never fabricated.
 - bankMonths: [{"period":"","deposits":null,"avgBalance":null,"nsfs":0}] — only from extracted data.
@@ -377,8 +377,6 @@ async function runAgent(){
 
   const loanAmount=document.getElementById('f-amount').value||'Not specified';
   const ownerName=document.getElementById('f-owner').value||'';
-  const yearsInBiz=document.getElementById('f-years').value||'';
-  const priorHistory=document.getElementById('f-prior-history').value||'';
   const fico=document.getElementById('f-fico').value||'Not provided';
 
   try{
@@ -391,8 +389,7 @@ async function runAgent(){
       const images=await extractPdfImages(f);
       if(images.length===0){log(`  ⚠ ${f.name}: no pages rendered (file may be empty or corrupted)`,'warn');continue;}
       const content=imagesToContent(images,`These are page images of a tax return file named "${f.name}". Extract the data per the schema in your instructions.`);
-      const result=await callClaude(TAX_SYSTEM,content,`Tax: ${f.name}`,1200,true);
-      const json=safeJSON(result);
+      const json=await callClaudeJSON(TAX_SYSTEM,content,`Tax: ${f.name}`,1200);
       if(json){
         if(json.readable===false)log(`  ⚠ ${f.name} flagged unreadable: ${json.unreadableReason||'unknown reason'}`,'warn');
         extracted.push({type:'tax',file:f.name,data:json});
@@ -407,8 +404,7 @@ async function runAgent(){
       const images=await extractPdfImages(f);
       if(images.length===0){log(`  ⚠ ${f.name}: no pages rendered (file may be empty or corrupted)`,'warn');continue;}
       const content=imagesToContent(images,`These are page images of a bank statement file named "${f.name}". Extract the data per the schema in your instructions.`);
-      const result=await callClaude(BANK_SYSTEM,content,`Bank: ${f.name}`,1200,true);
-      const json=safeJSON(result);
+      const json=await callClaudeJSON(BANK_SYSTEM,content,`Bank: ${f.name}`,1200);
       if(json){
         if(json.readable===false)log(`  ⚠ ${f.name} flagged unreadable: ${json.unreadableReason||'unknown reason'}`,'warn');
         extracted.push({type:'bank',file:f.name,data:json});
@@ -423,12 +419,11 @@ async function runAgent(){
 
     setStep(3);log('━━ ROOM 2: RECONCILE ━━','head');
     const reconResult=await callClaude(RECON_SYSTEM,
-      `EXTRACTED DATA:\n${extractJSON}\nLOAN: ${loanAmount} for ${loanPurpose}\nOWNER (manual entry): ${ownerName}\nYEARS IN BUSINESS (manual entry, authoritative — use as-is, do not cross-check against incorporation date): ${yearsInBiz}\nPRIOR OPERATING HISTORY (optional context, broker-provided): ${priorHistory||'(none provided)'}`,
+      `EXTRACTED DATA:\n${extractJSON}\nLOAN: ${loanAmount} for ${loanPurpose}\nOWNER (manual entry): ${ownerName}`,
       'Reconcile',2000,true);
     const recon=safeJSON(reconResult)||{dataSufficient:false,missingItems:['TOOL ERROR — Reconciliation step did not return valid data. This is NOT a finding about the borrower; rerun the analysis. If it fails again, the documents themselves may need re-uploading.'],toolError:true};
 
     if(ownerName && !recon.ownerName) recon.ownerName = ownerName;
-    if(yearsInBiz) recon.yearsInBusiness = yearsInBiz;
     if(recon.dataSufficient===false){
       log(`  ⚠ DATA INSUFFICIENT: ${(recon.missingItems||[]).join('; ')}`,'warn');
     } else {
@@ -489,9 +484,8 @@ ${flagBanner}
 <tr><td style="width:40%"><b>Business Name</b></td><td>${recon.bizName||'—'}</td><td style="width:40%"><b>Loan Amount</b></td><td>${loan.loanAmount||'—'}</td></tr>
 <tr><td><b>Entity Type</b></td><td>${recon.entityType||'—'}</td><td><b>Loan Purpose</b></td><td>${loan.loanPurpose||'—'}</td></tr>
 <tr><td><b>Business Address</b></td><td>${recon.bizAddress||'—'}</td><td><b>Owner FICO</b></td><td>${loan.fico||'—'}</td></tr>
-<tr><td><b>EIN</b></td><td>${recon.ein||'—'}</td><td><b>Years in Business</b></td><td>${recon.yearsInBusiness||'—'}</td></tr>
-<tr><td><b>Owner / Principal</b></td><td>${recon.ownerName||'—'}</td><td><b>Memo Date</b></td><td>${d}</td></tr>
-<tr><td><b>Prepared By</b></td><td colspan="3">The Amity Group LLC</td></tr>
+<tr><td><b>EIN</b></td><td>${recon.ein||'—'}</td><td><b>Owner / Principal</b></td><td>${recon.ownerName||'—'}</td></tr>
+<tr><td><b>Memo Date</b></td><td>${d}</td><td><b>Prepared By</b></td><td>The Amity Group LLC</td></tr>
 </table></div>
 
 <div class="memo-section"><div class="memo-section-title">II. Business Overview</div>

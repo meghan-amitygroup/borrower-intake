@@ -59,6 +59,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .memo-table tr:last-child td{border-bottom:none}
 .memo-table .total td{font-weight:700;background:#e8f0fe;color:#0a1628}
 .narrative-box{background:#fffdf5;border:1px solid #f0e0a0;border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:#2d2d2d}
+.warn-box{background:#fff4f0;border:1px solid #f0b8a0;border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:#7a2e10}
+.warn-box b{color:#a8341a}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .action-row{display:flex;gap:10px;margin-top:16px}
 .action-btn{flex:1;padding:10px;border:1px solid #dde3ed;background:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:#0a1628;transition:all 0.2s}
@@ -71,7 +73,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #other-purpose-wrap{display:none;margin-top:8px}
 @media(max-width:600px){.upload-row,.form-grid,.two-col{grid-template-columns:1fr}}
 
-/* ── PRINT STYLES ── hides everything except the memo ── */
 @media print{
   body{background:#fff !important}
   .header,.pipeline,.section,.run-btn,.agent-log,.action-row,.token-bar{display:none !important}
@@ -81,8 +82,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .memo-table th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .memo-table .total td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .narrative-box{border:1px solid #ccc !important;background:#fffdf5 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-
-  /* Print header injected via JS before printing */
+  .warn-box{border:1px solid #e0a080 !important;background:#fff4f0 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   #print-header{display:block !important}
   #print-footer{display:block !important}
 }
@@ -92,7 +92,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </head>
 <body>
 
-<!-- PRINT HEADER (hidden on screen, shown on print) -->
 <div id="print-header" style="text-align:center;padding:18px 0 12px;border-bottom:3px solid #0a1628;margin-bottom:20px">
   <div style="font-size:11px;color:#8899bb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">The Amity Group LLC · Commercial Loan Brokerage</div>
   <div style="font-size:22px;font-weight:800;color:#0a1628;letter-spacing:-0.5px">CREDIT MEMORANDUM</div>
@@ -110,22 +109,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <div class="pipeline">
   <div class="pipe-step active" id="step1"><span class="step-num">①</span>Upload</div>
-  <div class="pipe-step" id="step2"><span class="step-num">②</span>Extract</div>
+  <div class="pipe-step" id="step2"><span class="step-num">②</span>Read</div>
   <div class="pipe-step" id="step3"><span class="step-num">③</span>Reconcile</div>
   <div class="pipe-step" id="step4"><span class="step-num">④</span>Narrative</div>
   <div class="pipe-step" id="step5"><span class="step-num">⑤</span>Memo</div>
 </div>
 
-<!-- Borrower Info -->
 <div class="section">
   <div class="section-title">Borrower Info <span class="badge">Manual Entry</span></div>
   <div class="form-grid">
-
     <div class="form-group">
       <label>Loan Amount Requested</label>
       <input type="text" id="f-amount" placeholder="e.g. $75,000">
     </div>
-
     <div class="form-group">
       <label>Loan Purpose</label>
       <select id="f-purpose" onchange="toggleOther()">
@@ -142,26 +138,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <input type="text" id="f-purpose-other" placeholder="Please describe the loan purpose">
       </div>
     </div>
-
     <div class="form-group">
       <label>Owner / Principal Name</label>
       <input type="text" id="f-owner" placeholder="e.g. John Smith">
     </div>
-
     <div class="form-group">
       <label>Years in Business</label>
       <input type="text" id="f-years" placeholder="e.g. 7">
     </div>
-
     <div class="form-group">
       <label>Owner FICO Score</label>
       <input type="text" id="f-fico" placeholder="e.g. 650">
     </div>
-
   </div>
 </div>
 
-<!-- Upload -->
 <div class="section">
   <div class="section-title">Documents <span class="badge">Upload</span></div>
   <div class="upload-row">
@@ -186,10 +177,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Model -->
 <div class="section" style="padding:14px 22px">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-    <div style="font-size:12px;color:#4a5568"><b>OCR mode:</b> pdf.js extracts text client-side — zero token cost for extraction</div>
+    <div style="font-size:12px;color:#4a5568"><b>Read mode:</b> pages are rendered to images locally and read by Claude's vision — works even with scanned/photographed documents (no text layer needed)</div>
     <div style="display:flex;align-items:center;gap:8px">
       <label style="font-size:12px;color:#4a5568;font-weight:600">Model:</label>
       <select id="model-sel" style="font-size:12px;padding:5px 8px;border:1px solid #dde3ed;border-radius:6px">
@@ -206,7 +196,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="log-line info">Agent ready. Upload documents and click Run.</div>
 </div>
 
-<!-- Memo Output -->
 <div class="memo-wrap" id="memo-wrap">
   <div class="memo-header">
     <div style="font-size:11px;color:#8899bb;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">The Amity Group LLC · Commercial Loan Brokerage</div>
@@ -222,22 +211,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <span>Total tokens used:</span>
     <span class="token-count" id="token-total">—</span>
     <span class="model-badge" id="model-used">—</span>
-    <span style="margin-left:auto;font-size:10px;color:#aaa">4 modular calls · PDFs never sent to assemble step</span>
+    <span style="margin-left:auto;font-size:10px;color:#aaa">4 modular calls · images read once, not re-sent to assemble step</span>
   </div>
 </div>
 
-<!-- Print footer (hidden on screen) -->
 <div id="print-footer" style="margin-top:30px;padding-top:12px;border-top:1px solid #ccc;display:flex;justify-content:space-between;font-size:10px;color:#999">
   <span>The Amity Group LLC · 826 Whitney Lane, Lexington, SC 29072 · NAICS 522390</span>
   <span id="print-footer-date"></span>
 </div>
 
-</div><!-- /main -->
+</div>
 
 <script>
 const WORKER = 'https://bitter-bread-55f9.meghan-985.workers.dev';
+const MAX_PAGES_PER_FILE = 8;
+const MAX_TOTAL_PAGES = 26;
 let files = { tax: [], bank: [] };
 let totalTokens = 0;
+let totalPagesRendered = 0;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -245,13 +236,11 @@ function toggleOther() {
   const val = document.getElementById('f-purpose').value;
   document.getElementById('other-purpose-wrap').style.display = val === 'Other' ? 'block' : 'none';
 }
-
 function getLoanPurpose() {
   const sel = document.getElementById('f-purpose').value;
   if (sel === 'Other') return document.getElementById('f-purpose-other').value || 'Other';
   return sel || 'Not specified';
 }
-
 function dzOver(e,id){e.preventDefault();document.getElementById(id).style.background='#fff8e1';}
 function dzOut(id){document.getElementById(id).style.background='#fffdf5';}
 function dzDrop(e,type){e.preventDefault();dzOut('dz-'+type);addFiles(e.dataTransfer.files,type);}
@@ -262,19 +251,47 @@ function log(msg,cls='info'){const el=document.getElementById('agent-log');el.in
 function clearLog(){document.getElementById('agent-log').innerHTML='';}
 function setStep(n){for(let i=1;i<=5;i++){const el=document.getElementById('step'+i);if(i<n)el.className='pipe-step done';else if(i===n)el.className='pipe-step active';else el.className='pipe-step';}}
 
-async function extractPdfText(file){
-  const ab=await file.arrayBuffer();
-  const pdf=await pdfjsLib.getDocument({data:ab}).promise;
-  let text='';
-  const maxPages=Math.min(pdf.numPages,6);
-  for(let i=1;i<=maxPages;i++){const page=await pdf.getPage(i);const content=await page.getTextContent();text+=content.items.map(s=>s.str).join(' ')+'\n';}
-  return text.slice(0,6000);
+// Renders each PDF page to a compressed JPEG image (works for scanned/no-text-layer PDFs)
+async function extractPdfImages(file){
+  const ab = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:ab}).promise;
+  const numPages = Math.min(pdf.numPages, MAX_PAGES_PER_FILE);
+  const images = [];
+  for(let i=1;i<=numPages;i++){
+    if(totalPagesRendered >= MAX_TOTAL_PAGES){
+      log(`  ⚠ Page cap (${MAX_TOTAL_PAGES}) reached — skipping remaining pages`,'warn');
+      break;
+    }
+    const page = await pdf.getPage(i);
+    let scale = 1.6;
+    const baseVp = page.getViewport({scale});
+    const longest = Math.max(baseVp.width, baseVp.height);
+    if(longest > 1600) scale = scale * (1600/longest);
+    const vp = page.getViewport({scale});
+    const canvas = document.createElement('canvas');
+    canvas.width = vp.width;
+    canvas.height = vp.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({canvasContext:ctx, viewport:vp}).promise;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+    images.push(dataUrl.split(',')[1]);
+    totalPagesRendered++;
+  }
+  return images;
+}
+
+function imagesToContent(images, promptText){
+  const content = [{type:'text', text:promptText}];
+  for(const img of images){
+    content.push({type:'image', source:{type:'base64', media_type:'image/jpeg', data:img}});
+  }
+  return content;
 }
 
 async function callClaude(systemPrompt,userContent,label){
   const model=document.getElementById('model-sel').value;
   log(`  → Calling Claude [${label}]...`,'info');
-  const resp=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,max_tokens:900,system:systemPrompt,messages:[{role:'user',content:userContent}]})});
+  const resp=await fetch(WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,max_tokens:1200,system:systemPrompt,messages:[{role:'user',content:userContent}]})});
   if(!resp.ok)throw new Error(`Worker error ${resp.status}`);
   const data=await resp.json();
   if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
@@ -287,13 +304,43 @@ async function callClaude(systemPrompt,userContent,label){
 
 function safeJSON(str){try{return JSON.parse(str.replace(/```json|```/g,'').trim());}catch(e){return null;}}
 
+const TAX_SYSTEM = `You are a meticulous financial document reader examining IMAGES of a tax return (it may be a scan or photo). Read every page carefully.
+Return ONLY valid JSON, no explanation, no markdown fences:
+{"bizName":null,"bizAddress":null,"ein":null,"entityType":null,"fiscalYear":null,"grossReceipts":null,"netIncome":null,"totalDeductions":null,"ownerName":null,"ownerTitle":null,"readable":true,"unreadableReason":null,"notes":""}
+RULES:
+- Numbers must be integers with no symbols, or null if you cannot read them with confidence.
+- NEVER guess or estimate a number you cannot clearly see. If a figure is blurry, cut off, or the page is blank, set it to null.
+- Set "readable":false and explain in "unreadableReason" if the document is blank, illegible, or not actually a tax return.
+- Return JSON only.`;
+
+const BANK_SYSTEM = `You are a meticulous financial document reader examining IMAGES of a bank statement (it may be a scan or photo). Read every page carefully.
+Return ONLY valid JSON, no explanation, no markdown fences:
+{"bankName":null,"accountLast4":null,"statementPeriod":null,"openingBalance":null,"closingBalance":null,"totalDeposits":null,"totalWithdrawals":null,"avgDailyBalance":null,"nsfs":null,"largeDeposits":[],"readable":true,"unreadableReason":null,"notes":""}
+RULES:
+- Numbers must be integers with no symbols, or null if you cannot read them with confidence.
+- NEVER guess or estimate a number you cannot clearly see. If a figure is blurry, cut off, or the page is blank, set it to null.
+- largeDeposits format: [{"date":"","amount":0,"description":""}] — only include deposits you can clearly read.
+- Set "readable":false and explain in "unreadableReason" if the document is blank, illegible, or not actually a bank statement.
+- Return JSON only.`;
+
+const RECON_SYSTEM = `You are a loan analyst reconciling extracted financial data for a commercial loan broker. You must be strictly accurate — do not infer, smooth over, or invent any figure that was not explicitly provided in the input.
+Return ONLY valid JSON, no markdown fences:
+{"bizName":null,"bizAddress":null,"ein":null,"entityType":null,"ownerName":null,"yearsInBusiness":null,"taxYears":[],"bankMonths":[],"avgMonthlyDeposits":null,"peakMonth":null,"peakDeposits":null,"taxVsBankNote":"","depositGrowthNote":"","strongestPoint":"","dataSufficient":true,"missingItems":[]}
+RULES:
+- taxYears: [{"year":"","grossReceipts":null,"netIncome":null}] — only from extracted data, never fabricated.
+- bankMonths: [{"period":"","deposits":null,"avgBalance":null,"nsfs":0}] — only from extracted data.
+- avgMonthlyDeposits: only calculate this if at least one bank month has a non-null deposits figure; otherwise null.
+- Set "dataSufficient":false if core figures needed to assess repayment capacity are missing or unreadable (e.g. no usable revenue or deposit numbers across all submitted documents). List exactly what's missing in "missingItems" (plain language, e.g. "2024 tax return gross receipts unreadable", "March bank statement illegible").
+- "strongestPoint" should only state things actually supported by the data — leave it empty/minimal if data is thin.
+- Return JSON only.`;
+
 async function runAgent(){
   const allFiles=[...files.tax,...files.bank];
   if(allFiles.length===0){alert('Please upload at least one document.');return;}
   const loanPurpose=getLoanPurpose();
   if(!document.getElementById('f-purpose').value){alert('Please select a loan purpose.');return;}
 
-  clearLog();totalTokens=0;
+  clearLog();totalTokens=0;totalPagesRendered=0;
   document.getElementById('memo-wrap').style.display='none';
   document.getElementById('run-btn').disabled=true;
   document.getElementById('token-total').textContent='0';
@@ -305,62 +352,74 @@ async function runAgent(){
   const fico=document.getElementById('f-fico').value||'Not provided';
 
   try{
-    // ROOM 1: EXTRACT
-    setStep(2);log('━━ ROOM 1: EXTRACT ━━','head');
-    log('Extracting text from PDFs client-side (no tokens)...','info');
+    setStep(2);log('━━ ROOM 1: READ DOCUMENTS ━━','head');
+    log(`Rendering pages locally (cap: ${MAX_TOTAL_PAGES} pages total)...`,'info');
     const extracted=[];
 
     for(const f of files.tax){
-      log(`  Extracting: ${f.name}`,'info');
-      const text=await extractPdfText(f);
-      const result=await callClaude(
-        'You are a financial data extractor. Read this tax return and return ONLY valid JSON: {"bizName":"","bizAddress":"","ein":"","entityType":"","fiscalYear":"","grossReceipts":0,"netIncome":0,"totalDeductions":0,"ownerName":"","ownerTitle":"","notes":""}. Numbers as integers. Return JSON only, no explanation.',
-        `TAX RETURN TEXT:\n${text}`,`Tax: ${f.name}`);
+      log(`  Rendering: ${f.name}`,'info');
+      const images=await extractPdfImages(f);
+      if(images.length===0){log(`  ⚠ ${f.name}: no pages rendered (file may be empty or corrupted)`,'warn');continue;}
+      const content=imagesToContent(images,`These are page images of a tax return file named "${f.name}". Extract the data per the schema in your instructions.`);
+      const result=await callClaude(TAX_SYSTEM,content,`Tax: ${f.name}`);
       const json=safeJSON(result);
-      if(json)extracted.push({type:'tax',file:f.name,data:json});
-      else{log(`  ⚠ Could not parse JSON for ${f.name}`,'warn');extracted.push({type:'tax',file:f.name,raw:result});}
+      if(json){
+        if(json.readable===false)log(`  ⚠ ${f.name} flagged unreadable: ${json.unreadableReason||'unknown reason'}`,'warn');
+        extracted.push({type:'tax',file:f.name,data:json});
+      } else {
+        log(`  ⚠ Could not parse response for ${f.name}`,'warn');
+        extracted.push({type:'tax',file:f.name,data:{readable:false,unreadableReason:'Response parse failure'}});
+      }
     }
 
     for(const f of files.bank){
-      log(`  Extracting: ${f.name}`,'info');
-      const text=await extractPdfText(f);
-      const result=await callClaude(
-        'You are a financial data extractor. Read this bank statement and return ONLY valid JSON: {"bankName":"","accountLast4":"","statementPeriod":"","openingBalance":0,"closingBalance":0,"totalDeposits":0,"totalWithdrawals":0,"avgDailyBalance":0,"nsfs":0,"largeDeposits":[],"notes":""}. Numbers as integers. largeDeposits: [{"date":"","amount":0,"description":""}]. Return JSON only.',
-        `BANK STATEMENT TEXT:\n${text}`,`Bank: ${f.name}`);
+      log(`  Rendering: ${f.name}`,'info');
+      const images=await extractPdfImages(f);
+      if(images.length===0){log(`  ⚠ ${f.name}: no pages rendered (file may be empty or corrupted)`,'warn');continue;}
+      const content=imagesToContent(images,`These are page images of a bank statement file named "${f.name}". Extract the data per the schema in your instructions.`);
+      const result=await callClaude(BANK_SYSTEM,content,`Bank: ${f.name}`);
       const json=safeJSON(result);
-      if(json)extracted.push({type:'bank',file:f.name,data:json});
-      else{log(`  ⚠ Could not parse JSON for ${f.name}`,'warn');extracted.push({type:'bank',file:f.name,raw:result});}
+      if(json){
+        if(json.readable===false)log(`  ⚠ ${f.name} flagged unreadable: ${json.unreadableReason||'unknown reason'}`,'warn');
+        extracted.push({type:'bank',file:f.name,data:json});
+      } else {
+        log(`  ⚠ Could not parse response for ${f.name}`,'warn');
+        extracted.push({type:'bank',file:f.name,data:{readable:false,unreadableReason:'Response parse failure'}});
+      }
     }
 
+    log(`Pages rendered total: ${totalPagesRendered}`,'info');
     const extractJSON=JSON.stringify(extracted);
 
-    // ROOM 2: RECONCILE
     setStep(3);log('━━ ROOM 2: RECONCILE ━━','head');
-    const reconResult=await callClaude(
-      'You are a loan analyst for a borrower advocate. Given extracted financial data return ONLY valid JSON: {"bizName":"","bizAddress":"","ein":"","entityType":"","ownerName":"","yearsInBusiness":"","taxYears":[{"year":"","grossReceipts":0,"netIncome":0}],"bankMonths":[{"period":"","deposits":0,"avgBalance":0,"nsfs":0}],"avgMonthlyDeposits":0,"peakMonth":"","peakDeposits":0,"taxVsBankNote":"","depositGrowthNote":"","strongestPoint":""}. Calculate avgMonthlyDeposits as average of all bank deposit totals. Focus on strengths. Return JSON only.',
+    const reconResult=await callClaude(RECON_SYSTEM,
       `EXTRACTED DATA:\n${extractJSON}\nLOAN: ${loanAmount} for ${loanPurpose}\nOWNER (manual entry): ${ownerName}\nYEARS IN BUSINESS (manual entry): ${yearsInBiz}`,
       'Reconcile');
-    const recon=safeJSON(reconResult)||{};
+    const recon=safeJSON(reconResult)||{dataSufficient:false,missingItems:['Reconciliation step failed to return valid data']};
 
-    // Use manual entries if AI didn't find them
     if(ownerName && !recon.ownerName) recon.ownerName = ownerName;
     if(yearsInBiz && !recon.yearsInBusiness) recon.yearsInBusiness = yearsInBiz;
+    if(recon.dataSufficient===false){
+      log(`  ⚠ DATA INSUFFICIENT: ${(recon.missingItems||[]).join('; ')}`,'warn');
+    } else {
+      log('  ✓ Core financial data appears sufficient for a working memo','ok');
+    }
 
-    // ROOM 3: NARRATIVE
     setStep(4);log('━━ ROOM 3: NARRATIVE ━━','head');
-    const narrative=await callClaude(
-      'You are writing a credit memo narrative for a loan broker representing borrowers. Write 3 tight paragraphs (~180 words total) in professional lender language. Para 1: Business overview — name, type, location, years in business, ownership. Para 2: Financial strength — revenue, monthly deposits, consistency. Para 3: Loan purpose and repayment capacity. Advocate mode only — strengths only, no risk warnings, no bullet points.',
+    const narrSystem = recon.dataSufficient===false
+      ? `You are writing a credit memo narrative for a loan broker. The submitted documents have GAPS — core financial data is missing or unreadable. Write 2-3 honest paragraphs (~150 words): Para 1: business overview using only confirmed facts (name, type, years, ownership) — do not invent anything. Para 2: clearly and plainly state what financial data is missing or unreadable and that it must be resubmitted before this can be assessed for repayment capacity. Do not claim strong cash flow, consistency, or repayment capacity. Be factual, not alarmist.`
+      : `You are writing a credit memo narrative for a loan broker representing borrowers. Write 3 tight paragraphs (~180 words total) in professional lender language, using ONLY the figures provided — never invent or round up favorably. Para 1: Business overview — name, type, location, years in business, ownership. Para 2: Financial strength — revenue, monthly deposits, consistency, using only confirmed numbers. Para 3: Loan purpose and repayment capacity, grounded in the actual figures. Advocate mode: present the data in its best honest light, but do not state conclusions the numbers don't support.`;
+    const narrative=await callClaude(narrSystem,
       `DATA: ${JSON.stringify(recon)}\nLOAN AMOUNT: ${loanAmount} | PURPOSE: ${loanPurpose} | FICO: ${fico}`,
       'Narrative');
 
-    // ROOM 4: ASSEMBLE
     setStep(5);log('━━ ROOM 4: ASSEMBLE ━━','head');
-    log('Building final memo (no PDFs)...','info');
+    log('Building final memo...','info');
     buildMemo(recon,narrative,{loanAmount,loanPurpose,fico});
 
     log('━━━━━━━━━━━━━━━━━━━━━━━━━━━','head');
     log(`✅ Complete. Total tokens: ${totalTokens.toLocaleString()}`,'ok');
-    log(`   Files: ${allFiles.length} | API calls: ${files.tax.length+files.bank.length+2}`,'info');
+    log(`   Files: ${allFiles.length} | Pages rendered: ${totalPagesRendered} | API calls: ${files.tax.length+files.bank.length+2}`,'info');
 
   }catch(err){
     log(`ERROR: ${err.message}`,'err');
@@ -370,17 +429,31 @@ async function runAgent(){
 }
 
 function buildMemo(recon,narrative,loan){
-  const fmt=n=>n?'$'+(+n).toLocaleString():'—';
+  const fmt=n=>(n===null||n===undefined||n==='')?'—':'$'+(+n).toLocaleString();
   const d=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
 
-  // Set print header details
   document.getElementById('print-header-sub').textContent=`${recon.bizName||'Borrower'} · Prepared: ${d} · ${loan.loanAmount}`;
   document.getElementById('print-footer-date').textContent=`Prepared: ${d} · Confidential — For Lender Use Only`;
 
-  const taxRows=(recon.taxYears||[]).map(ty=>`<tr><td>${ty.year||'—'}</td><td>${fmt(ty.grossReceipts)}</td><td>${fmt(ty.netIncome)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:#999">See uploaded tax returns</td></tr>';
-  const bankRows=(recon.bankMonths||[]).map(bm=>`<tr><td>${bm.period||'—'}</td><td>${fmt(bm.deposits)}</td><td>${fmt(bm.avgBalance)}</td><td>${bm.nsfs||0}</td></tr>`).join('')||'<tr><td colspan="4" style="color:#999">See uploaded bank statements</td></tr>';
+  const taxRows=(recon.taxYears||[]).filter(ty=>ty.year||ty.grossReceipts||ty.netIncome).map(ty=>`<tr><td>${ty.year||'—'}</td><td>${fmt(ty.grossReceipts)}</td><td>${fmt(ty.netIncome)}</td></tr>`).join('')||'<tr><td colspan="3" style="color:#999">No readable tax data — resubmission required</td></tr>';
+  const bankRows=(recon.bankMonths||[]).filter(bm=>bm.period||bm.deposits||bm.avgBalance).map(bm=>`<tr><td>${bm.period||'—'}</td><td>${fmt(bm.deposits)}</td><td>${fmt(bm.avgBalance)}</td><td>${bm.nsfs??0}</td></tr>`).join('')||'<tr><td colspan="4" style="color:#999">No readable bank data — resubmission required</td></tr>';
+
+  const insufficient = recon.dataSufficient===false;
+  const missingList = (recon.missingItems||[]).map(m=>`<li>${m}</li>`).join('');
+
+  const flagBanner = insufficient ? `
+<div class="memo-section">
+<div class="warn-box"><b>⚠ INCOMPLETE FILE — NOT READY FOR LENDER SUBMISSION</b><br>
+The following items could not be read or were not provided. Request updated documents from the borrower before this memo is submitted to a lender:
+<ul style="margin:8px 0 0 18px">${missingList || '<li>Core financial figures missing or unreadable</li>'}</ul>
+</div></div>` : '';
+
+  const recommendation = insufficient
+    ? `This memorandum is preliminary only. Based on the documents submitted, The Amity Group LLC cannot yet assess repayment capacity for ${recon.bizName||'this borrower'} due to the data gaps noted above. A recommendation will follow once legible, complete documentation is received.`
+    : `The Amity Group LLC presents this application on behalf of ${recon.bizName||'the borrower'}. ${recon.strongestPoint||'The figures above reflect the documentation provided.'} The Amity Group LLC is available to provide any additional documentation or clarification required.`;
 
   const html=`
+${flagBanner}
 <div class="memo-section"><div class="memo-section-title">I. Transaction Summary</div>
 <table class="memo-table">
 <tr><td style="width:40%"><b>Business Name</b></td><td>${recon.bizName||'—'}</td><td style="width:40%"><b>Loan Amount</b></td><td>${loan.loanAmount||'—'}</td></tr>
@@ -392,7 +465,7 @@ function buildMemo(recon,narrative,loan){
 </table></div>
 
 <div class="memo-section"><div class="memo-section-title">II. Business Overview</div>
-<div class="narrative-box">${narrative.replace(/\n/g,'<br>')}</div></div>
+<div class="${insufficient?'warn-box':'narrative-box'}">${(narrative||'').replace(/\n/g,'<br>')}</div></div>
 
 <div class="memo-section"><div class="memo-section-title">III. Tax Return Analysis</div>
 <table class="memo-table"><thead><tr><th>Fiscal Year</th><th>Gross Receipts</th><th>Net Income</th></tr></thead>
@@ -408,7 +481,7 @@ ${recon.taxVsBankNote?`<div style="font-size:11px;color:#4a5568;margin-top:8px;p
 <tr><td>Peak Month</td><td>${recon.peakMonth||'—'}</td></tr>
 <tr><td>Peak Deposits</td><td>${fmt(recon.peakDeposits)}</td></tr>
 </table>
-<div style="background:#f0f7ff;border-radius:8px;padding:12px;font-size:12px;color:#1a3a7c;line-height:1.6"><b>Deposit Trend:</b><br>${recon.depositGrowthNote||'See bank statements for full detail.'}</div>
+<div style="background:#f0f7ff;border-radius:8px;padding:12px;font-size:12px;color:#1a3a7c;line-height:1.6"><b>Deposit Trend:</b><br>${recon.depositGrowthNote||'Insufficient readable bank data to assess trend.'}</div>
 </div></div>
 
 <div class="memo-section"><div class="memo-section-title">V. Loan Request &amp; Repayment Capacity</div>
@@ -419,7 +492,7 @@ ${recon.taxVsBankNote?`<div style="font-size:11px;color:#4a5568;margin-top:8px;p
 </table></div>
 
 <div class="memo-section"><div class="memo-section-title">VI. Broker Recommendation</div>
-<div class="narrative-box">The Amity Group LLC presents this application on behalf of ${recon.bizName||'the borrower'} and recommends approval. ${recon.strongestPoint||''} This borrower demonstrates consistent cash flow and a clear repayment capacity relative to the requested loan amount. The Amity Group LLC is available to provide any additional documentation or clarification required.</div></div>`;
+<div class="${insufficient?'warn-box':'narrative-box'}">${recommendation}</div></div>`;
 
   document.getElementById('memo-sub').textContent=`${recon.bizName||'Borrower'} · ${d} · ${loan.loanAmount}`;
   document.getElementById('memo-body').innerHTML=html;
@@ -428,14 +501,12 @@ ${recon.taxVsBankNote?`<div style="font-size:11px;color:#4a5568;margin-top:8px;p
 }
 
 function exportPDF(){
-  // Set page title so the saved PDF filename is clean
   const bizName = document.getElementById('memo-sub').textContent.split('·')[0].trim() || 'Credit Memo';
   const orig = document.title;
   document.title = `Credit Memo - ${bizName}`;
   window.print();
   document.title = orig;
 }
-
 function copyMemo(){
   const text=document.getElementById('memo-body').innerText;
   navigator.clipboard.writeText(text).then(()=>alert('Memo copied to clipboard.'));
